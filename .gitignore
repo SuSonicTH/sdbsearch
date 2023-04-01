@@ -1,4 +1,7 @@
+/.vscode/
+/cmake-build-debug/
+/build/
+/.idea/
 AT_SDB_DATA_TBL*
 sdbsearch
 sdbsearch.exe
-.vscode/
