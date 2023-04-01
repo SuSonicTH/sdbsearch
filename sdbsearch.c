@@ -10,6 +10,7 @@
 #define TYPE_SIZE 15
 #define BUFFER_SIZE 100000
 #define PRE_ALLOC_SIZE 1000000
+#define EXPORT_OUTPUT_BUFFER_SIZE (4*1024)
 
 typedef struct {
     char number[NUMBER_SIZE];
@@ -42,6 +43,7 @@ uint32_t nr_of_nodes = 0;
 record_t *records = NULL;
 node_t *root = NULL;
 pre_alloc_t pre_alloc = {NULL, 0, 0};
+char export_output_buffer[EXPORT_OUTPUT_BUFFER_SIZE];
 
 int verbose = 0;
 int export = 0;
@@ -61,6 +63,8 @@ int parse_arguments(int argc, char **pString);
 void print_help();
 
 void print_statistics();
+
+void set_export();
 
 void open_file() {
     if ((fp = fopen("AT_SDB_DATA_TBL", "rb")) == NULL) {
@@ -117,7 +121,9 @@ void read_records() {
             if (strlen(records[index].number) < 20 && records[index].number[0] == '4' &&
                 records[index].number[1] == '3') {
                 add_to_tree(&records[index]);
-                //print_record(&records[index]);
+                if (export) {
+                    print_record(&records[index]);
+                }
                 index++;
             }
         }
@@ -189,7 +195,7 @@ int parse_arguments(int argc, char **argv) {
             } else if (strcmp(argv[i], "--verbose") == 0) {
                 verbose = 1;
             } else if (strcmp(argv[i], "--export") == 0) {
-                export = 1;
+                set_export();
             }
         } else if (argv[i][0] == '-') {
             switch (argv[i][1]) {
@@ -203,16 +209,23 @@ int parse_arguments(int argc, char **argv) {
                     break;
                 case 'e':
                 case 'E':
-                    export = 1;
+                    set_export();
                     break;
             }
         } else {
             return i;
         }
     }
-    print_help();
-    exit_error("You have to give at least an option or a number to search");
-    return 0;
+    if (!export) {
+        print_help();
+        exit_error("You have to give at least an option or a number to search");
+        return 0;
+    }
+}
+
+void set_export() {
+    export = 1;
+    setvbuf(stdout, export_output_buffer, _IOFBF, EXPORT_OUTPUT_BUFFER_SIZE);
 }
 
 void print_help() {
