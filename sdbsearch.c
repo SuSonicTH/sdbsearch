@@ -23,14 +23,24 @@ typedef struct
     char type[TYPE_SIZE + 1];
 } record_type;
 
+typedef struct node
+{
+    struct node **nodes;
+    record_type *record;
+} node;
+
 FILE *fp = NULL;
 uint32_t nr_of_records;
 record_type *records;
+node *root;
 
 void open_file();
 void cleanup();
 void exit_error(char *message);
 void read_nr_of_records();
+void init_tree();
+node *new_node();
+void add_to_tree(record_type *record);
 
 void open_file()
 {
@@ -46,7 +56,8 @@ void cleanup()
     {
         fclose(fp);
     }
-    if (records!=NULL){
+    if (records != NULL)
+    {
         free(records);
     }
 }
@@ -86,7 +97,6 @@ void read_records()
 {
     fseek(fp, START_OF_RECODS_POSITION, SEEK_SET);
     record_disk_type buffer[BUFFER_SIZE];
-    
     size_t records_read;
     size_t index = 0;
 
@@ -95,6 +105,8 @@ void read_records()
         exit_error("Could not allocate memory for records\n");
     }
 
+    init_tree();
+
     while ((records_read = fread(buffer, sizeof(record_disk_type), BUFFER_SIZE, fp)) > 0)
     {
         for (int i = 0; i < records_read; i++)
@@ -102,9 +114,43 @@ void read_records()
             copy_null_terminated(&(buffer[i].number), &(records[index].number), NUMBER_SIZE);
             copy_null_terminated(&(buffer[i].network), &(records[index].network), NETWORK_SIZE);
             copy_null_terminated(&(buffer[i].type), &(records[index].type), TYPE_SIZE);
+            add_to_tree(&records[index]);
             index++;
         }
     }
+}
+
+node *new_node()
+{
+    node *node = malloc(sizeof(node));
+    node->record = NULL;
+    node->nodes = malloc(sizeof(node) * 10);
+    return node;
+}
+
+void init_tree()
+{
+    if ((root = new_node()) == NULL)
+    {
+        exit_error("Could not allocate memory for tree\n");
+    }
+}
+
+void add_to_tree(record_type *record)
+{
+    char *number = record->number;
+    node *current_node = root;
+    while (*number != 0)
+    {
+        uint8_t slot = (*number) - '0';
+        if (current_node->nodes[slot] == NULL)
+        {
+            current_node->nodes[slot] = new_node();
+        }
+        current_node = current_node->nodes[slot];
+        number++;
+    }
+    current_node->record = record;
 }
 
 int main(int argc, char **argv)
