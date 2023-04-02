@@ -83,11 +83,12 @@ int main(int argc, char **argv) {
             find(argv[s]);
         }
     }
+    getchar();
     return 0;
 }
 
 void print_statistics() {
-    if (verbose) {
+    if (verbose && !export) {
         fprintf(stderr, "\n");
         fprintf(stderr, "%d records read\n", nr_of_records_read);
         fprintf(stderr, "%d records filtered\n", nr_of_records - nr_of_records_read);
@@ -175,8 +176,9 @@ void read_records() {
     record_disk_t *buffer = malloc(sizeof(record_disk_t) * BUFFER_SIZE);
     size_t records_read;
     size_t index = 0;
+    uint32_t records_to_allocate = export?1:nr_of_records;
 
-    if ((records = malloc(nr_of_records * sizeof(record_t))) == NULL) {
+    if ((records = malloc(records_to_allocate * sizeof(record_t))) == NULL) {
         exit_error("Could not allocate memory for records\n");
     }
 
@@ -198,11 +200,12 @@ void read_records() {
             copy_null_terminated((char *) &(buffer[i].type), (char *) &(records[index].type), TYPE_SIZE);
             if (strlen(records[index].number) < 20 && records[index].number[0] == '4' &&
                 records[index].number[1] == '3') {
-                add_to_tree(&records[index]);
                 if (export) {
                     print_record(&records[index]);
+                }else{
+                    add_to_tree(&records[index]);
+                    index++;
                 }
-                index++;
             }
         }
         if (verbose) {
