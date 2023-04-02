@@ -52,9 +52,15 @@ uint8_t filter = 1;
 
 int parse_arguments(int argc, char **argv);
 
+void parse_long_argument(char *arg);
+
+void parse_short_argument(char *arg);
+
 node_t *new_node();
 
 void add_to_tree(record_t *record);
+
+void argument_error(char *argv);
 
 void copy_null_terminated(char *src, char *dest, uint32_t size);
 
@@ -64,7 +70,7 @@ void find(char *search);
 
 void open_file();
 
-void print_help();
+void print_help(FILE *fp);
 
 void print_statistics();
 
@@ -73,6 +79,7 @@ void read_nr_of_records();
 void read_records();
 
 void set_export();
+
 
 int main(int argc, char **argv) {
     int search = parse_arguments(argc, argv);
@@ -98,65 +105,86 @@ void print_statistics() {
     }
 }
 
-void print_help() {
-    printf("sdbsearch V0.1\n\n");
-    printf("usage: sdbserch [OPTIONS] [NUMBER 1] [NUMBER 2] ... [NUMBER n]\n");
-    printf("options:\n");
-    printf("        -h, --help       print this help\n");
-    printf("        -a, --all        show all matching numbers\n");
-    printf("        -n, --nofilter   do not filter 43 and length 20\n");
-    printf("        -e, --export     write all records in csv format to stdout\n");
-    printf("        -v, --verbose    verbose output\n");
-    printf("\n");
+void print_help(FILE *fp) {
+    fprintf(fp, "sdbsearch V0.1\n\n");
+    fprintf(fp, "usage: sdbserch [OPTIONS] [NUMBER 1] [NUMBER 2] ... [NUMBER n]\n");
+    fprintf(fp, "options:\n");
+    fprintf(fp, "        -h, --help       print this help\n");
+    fprintf(fp, "        -a, --all        show all matching numbers\n");
+    fprintf(fp, "        -n, --nofilter   do not filter 43 and length 20\n");
+    fprintf(fp, "        -e, --export     write all records in csv format to stdout\n");
+    fprintf(fp, "        -v, --verbose    verbose output\n");
+    fprintf(fp, "\n");
 }
 
 int parse_arguments(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-' && argv[i][1] == '-') {
-            if (strcmp(argv[i], "--help") == 0) {
-                print_help();
-                exit(0);
-            } else if (strcmp(argv[i], "--verbose") == 0) {
-                verbose = 1;
-            } else if (strcmp(argv[i], "--export") == 0) {
-                set_export();
-            } else if (strcmp(argv[i], "--all") == 0) {
-                find_all = 1;
-            } else if (strcmp(argv[i], "--nofilter") == 0) {
-                filter = 0;
-            }
+            parse_long_argument(argv[i]);
         } else if (argv[i][0] == '-') {
-            switch (argv[i][1]) {
-                case 'h':
-                case 'H':
-                    print_help();
-                    exit(0);
-                case 'v':
-                case 'V':
-                    verbose = 1;
-                    break;
-                case 'e':
-                case 'E':
-                    set_export();
-                    break;
-                case 'a':
-                case 'A':
-                    find_all = 1;
-                    break;
-                case 'n':
-                case 'N':
-                    filter = 0;
-                    break;
-            }
+            parse_short_argument(argv[i]);
         } else {
             return i;
         }
     }
     if (!export) {
-        print_help();
+        print_help(stdout);
         exit_error("You have to give at least an option or a number to search");
         return 0;
     }
+}
+
+void parse_short_argument(char *arg) {
+    if (arg[2] != 0) {
+        argument_error(arg);
+    }
+    switch (arg[1]) {
+        case 'h':
+        case 'H':
+            print_help(stdout);
+            exit(0);
+        case 'v':
+        case 'V':
+            verbose = 1;
+            break;
+        case 'e':
+        case 'E':
+            set_export();
+            break;
+        case 'a':
+        case 'A':
+            find_all = 1;
+            break;
+        case 'n':
+        case 'N':
+            filter = 0;
+            break;
+        default:
+            argument_error(arg);
+    }
+}
+
+void parse_long_argument(char *arg) {
+    if (strcmp(arg, "--help") == 0) {
+        print_help(stdout);
+        exit(0);
+    } else if (strcmp(arg, "--verbose") == 0) {
+        verbose = 1;
+    } else if (strcmp(arg, "--export") == 0) {
+        set_export();
+    } else if (strcmp(arg, "--all") == 0) {
+        find_all = 1;
+    } else if (strcmp(arg, "--nofilter") == 0) {
+        filter = 0;
+    } else {
+        argument_error(arg);
+    }
+}
+
+void argument_error(char *argv) {
+    print_help(stderr);
+    fprintf(stderr, "Error: unknown argument %s\n", argv);
+    exit(1);
 }
 
 void set_export() {
