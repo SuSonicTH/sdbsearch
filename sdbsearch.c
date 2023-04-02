@@ -45,8 +45,10 @@ node_t *root = NULL;
 pre_alloc_t pre_alloc = {NULL, 0, 0};
 char export_output_buffer[EXPORT_OUTPUT_BUFFER_SIZE];
 
-int verbose = 0;
-int export = 0;
+uint8_t verbose = 0;
+uint8_t export = 0;
+uint8_t find_all = 0;
+uint8_t filter = 1;
 
 int parse_arguments(int argc, char **argv);
 
@@ -83,7 +85,6 @@ int main(int argc, char **argv) {
             find(argv[s]);
         }
     }
-    getchar();
     return 0;
 }
 
@@ -102,8 +103,10 @@ void print_help() {
     printf("usage: sdbserch [OPTIONS] [NUMBER 1] [NUMBER 2] ... [NUMBER n]\n");
     printf("options:\n");
     printf("        -h, --help       print this help\n");
-    printf("        -v, --verbose    verbose output\n");
+    printf("        -a, --all        show all matching numbers\n");
+    printf("        -n, --nofilter   do not filter 43 and length 20\n");
     printf("        -e, --export     write all records in csv format to stdout\n");
+    printf("        -v, --verbose    verbose output\n");
     printf("\n");
 }
 
@@ -117,6 +120,10 @@ int parse_arguments(int argc, char **argv) {
                 verbose = 1;
             } else if (strcmp(argv[i], "--export") == 0) {
                 set_export();
+            } else if (strcmp(argv[i], "--all") == 0) {
+                find_all = 1;
+            } else if (strcmp(argv[i], "--nofilter") == 0) {
+                filter = 0;
             }
         } else if (argv[i][0] == '-') {
             switch (argv[i][1]) {
@@ -131,6 +138,14 @@ int parse_arguments(int argc, char **argv) {
                 case 'e':
                 case 'E':
                     set_export();
+                    break;
+                case 'a':
+                case 'A':
+                    find_all = 1;
+                    break;
+                case 'n':
+                case 'N':
+                    filter = 0;
                     break;
             }
         } else {
@@ -176,7 +191,7 @@ void read_records() {
     record_disk_t *buffer = malloc(sizeof(record_disk_t) * BUFFER_SIZE);
     size_t records_read;
     size_t index = 0;
-    uint32_t records_to_allocate = export?1:nr_of_records;
+    uint32_t records_to_allocate = export ? 1 : nr_of_records;
 
     if ((records = malloc(records_to_allocate * sizeof(record_t))) == NULL) {
         exit_error("Could not allocate memory for records\n");
@@ -198,11 +213,10 @@ void read_records() {
             copy_null_terminated((char *) &(buffer[i].number), (char *) &(records[index].number), NUMBER_SIZE);
             copy_null_terminated((char *) &(buffer[i].network), (char *) &(records[index].network), NETWORK_SIZE);
             copy_null_terminated((char *) &(buffer[i].type), (char *) &(records[index].type), TYPE_SIZE);
-            if (strlen(records[index].number) < 20 && records[index].number[0] == '4' &&
-                records[index].number[1] == '3') {
+            if (!filter || (strlen(records[index].number) < 20 && records[index].number[0] == '4' && records[index].number[1] == '3')) {
                 if (export) {
                     print_record(&records[index]);
-                }else{
+                } else {
                     add_to_tree(&records[index]);
                     index++;
                 }
@@ -261,6 +275,10 @@ void find(char *search) {
     node_t *current_node = root;
 
     while (*number != 0) {
+        if (find_all && current_node->record != NULL) {
+            printf("found: ", current_node->record->number);
+            print_record(current_node->record);
+        }
         uint8_t slot = (*number) - '0';
         if (current_node->nodes[slot] == NULL) {
             printf("number %s not found\n", search);
