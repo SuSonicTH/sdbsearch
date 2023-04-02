@@ -48,23 +48,105 @@ char export_output_buffer[EXPORT_OUTPUT_BUFFER_SIZE];
 int verbose = 0;
 int export = 0;
 
-void open_file();
-
-void exit_error(char *message);
-
-void read_nr_of_records();
+int parse_arguments(int argc, char **argv);
 
 node_t *new_node();
 
 void add_to_tree(record_t *record);
 
-int parse_arguments(int argc, char **pString);
+void copy_null_terminated(char *src, char *dest, uint32_t size);
+
+void exit_error(char *message);
+
+void find(char *search);
+
+void open_file();
 
 void print_help();
 
 void print_statistics();
 
+void read_nr_of_records();
+
+void read_records();
+
 void set_export();
+
+int main(int argc, char **argv) {
+    int search = parse_arguments(argc, argv);
+    open_file();
+    read_nr_of_records();
+    read_records();
+    print_statistics();
+    if (search > 0) {
+        for (int s = search; s < argc; s++) {
+            find(argv[s]);
+        }
+    }
+    return 0;
+}
+
+void print_statistics() {
+    if (verbose) {
+        fprintf(stderr, "\n");
+        fprintf(stderr, "%d records read\n", nr_of_records_read);
+        fprintf(stderr, "%d records filtered\n", nr_of_records - nr_of_records_read);
+        fprintf(stderr, "%d nodes created\n\n", nr_of_nodes);
+        fflush(stderr);
+    }
+}
+
+void print_help() {
+    printf("sdbsearch V0.1\n\n");
+    printf("usage: sdbserch [OPTIONS] [NUMBER 1] [NUMBER 2] ... [NUMBER n]\n");
+    printf("options:\n");
+    printf("        -h, --help       print this help\n");
+    printf("        -v, --verbose    verbose output\n");
+    printf("        -e, --export     write all records in csv format to stdout\n");
+    printf("\n");
+}
+
+int parse_arguments(int argc, char **argv) {
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] == '-' && argv[i][1] == '-') {
+            if (strcmp(argv[i], "--help") == 0) {
+                print_help();
+                exit(0);
+            } else if (strcmp(argv[i], "--verbose") == 0) {
+                verbose = 1;
+            } else if (strcmp(argv[i], "--export") == 0) {
+                set_export();
+            }
+        } else if (argv[i][0] == '-') {
+            switch (argv[i][1]) {
+                case 'h':
+                case 'H':
+                    print_help();
+                    exit(0);
+                case 'v':
+                case 'V':
+                    verbose = 1;
+                    break;
+                case 'e':
+                case 'E':
+                    set_export();
+                    break;
+            }
+        } else {
+            return i;
+        }
+    }
+    if (!export) {
+        print_help();
+        exit_error("You have to give at least an option or a number to search");
+        return 0;
+    }
+}
+
+void set_export() {
+    export = 1;
+    setvbuf(stdout, export_output_buffer, _IOFBF, EXPORT_OUTPUT_BUFFER_SIZE);
+}
 
 void open_file() {
     if ((fp = fopen("AT_SDB_DATA_TBL", "rb")) == NULL) {
@@ -83,15 +165,6 @@ void read_nr_of_records() {
     fread(&nr_of_records, sizeof(nr_of_records), 1, fp);
 }
 
-void copy_null_terminated(char *src, char *dest, uint32_t size) {
-    char *end = src + size;
-    while (*src != ' ' && src <= end) {
-        *dest = *src;
-        src++;
-        dest++;
-    }
-    *dest = 0;
-}
 
 void print_record(record_t *record) {
     printf("%s,%s,%s\n", record->number, record->network, record->type);
@@ -113,6 +186,11 @@ void read_records() {
         fprintf(stderr, "reading records");
         fflush(stderr);
     }
+
+    if (export) {
+        printf("NUMBER,NETWORK,TYPE\n");
+    }
+
     while ((records_read = fread(buffer, sizeof(record_disk_t), BUFFER_SIZE, fp)) > 0) {
         for (int i = 0; i < records_read; i++) {
             copy_null_terminated((char *) &(buffer[i].number), (char *) &(records[index].number), NUMBER_SIZE);
@@ -136,6 +214,16 @@ void read_records() {
         nr_of_records_read = index;
         fprintf(stderr, "\n");
     }
+}
+
+void copy_null_terminated(char *src, char *dest, uint32_t size) {
+    char *end = src + size;
+    while (*src != ' ' && src <= end) {
+        *dest = *src;
+        src++;
+        dest++;
+    }
+    *dest = 0;
 }
 
 node_t *new_node() {
@@ -185,80 +273,3 @@ void find(char *search) {
         printf("number %s not found\n", search);
     }
 }
-
-int parse_arguments(int argc, char **argv) {
-    for (int i = 1; i < argc; i++) {
-        if (argv[i][0] == '-' && argv[i][1] == '-') {
-            if (strcmp(argv[i], "--help") == 0) {
-                print_help();
-                exit(0);
-            } else if (strcmp(argv[i], "--verbose") == 0) {
-                verbose = 1;
-            } else if (strcmp(argv[i], "--export") == 0) {
-                set_export();
-            }
-        } else if (argv[i][0] == '-') {
-            switch (argv[i][1]) {
-                case 'h':
-                case 'H':
-                    print_help();
-                    exit(0);
-                case 'v':
-                case 'V':
-                    verbose = 1;
-                    break;
-                case 'e':
-                case 'E':
-                    set_export();
-                    break;
-            }
-        } else {
-            return i;
-        }
-    }
-    if (!export) {
-        print_help();
-        exit_error("You have to give at least an option or a number to search");
-        return 0;
-    }
-}
-
-void set_export() {
-    export = 1;
-    setvbuf(stdout, export_output_buffer, _IOFBF, EXPORT_OUTPUT_BUFFER_SIZE);
-}
-
-void print_help() {
-    printf("sdbsearch V0.1\n\n");
-    printf("usage: sdbserch [OPTIONS] [NUMBER 1] [NUMBER 2] ... [NUMBER n]\n");
-    printf("options:\n");
-    printf("        -h, --help       print this help\n");
-    printf("        -v, --verbose    verbose output\n");
-    printf("        -e, --export     write all records in csv format to stdout\n");
-    printf("\n");
-}
-
-void print_statistics() {
-    if (verbose) {
-        fprintf(stderr, "\n");
-        fprintf(stderr, "%d records read\n", nr_of_records_read);
-        fprintf(stderr, "%d records filtered\n", nr_of_records - nr_of_records_read);
-        fprintf(stderr, "%d nodes created\n\n", nr_of_nodes);
-        fflush(stderr);
-    }
-}
-
-int main(int argc, char **argv) {
-    int search = parse_arguments(argc, argv);
-    open_file();
-    read_nr_of_records();
-    read_records();
-    print_statistics();
-    if (search > 0) {
-        for (int s = search; s < argc; s++) {
-            find(argv[s]);
-        }
-    }
-    return 0;
-}
-
