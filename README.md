@@ -1,7 +1,7 @@
 # sdbsearch
 
 simple tool to read records from an Intermediate table into a prefix tree for searching number.
-Also has an option to export the recort in a csv file.
+Also has an option to export the record in a csv file.
 
 ## compile
 just call `./make` or compile directly with `gcc -o sdbsearch sdbsearch.c`
